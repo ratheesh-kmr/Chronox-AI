@@ -1,0 +1,19 @@
+const COLORS = {
+  primary: "#8F87F1",          // Purple
+  secondary: "#C68EFD",        // Light Purple
+  accent: "#E9A5F1",           // Pinkish Purple
+  softPink: "#FED2E2",         // Soft Pink
+
+  success: "#4CAF50",          // Green
+  danger: "#F44336",           // Red
+  warning: "#FFC107",          // Yellow
+  info: "#2196F3",             // Blue
+
+  white: "#FFFFFF",
+  black: "#000000",
+  lightGray: "#F5F5F5",
+  gray: "#BDBDBD",
+  darkGray: "#424242",
+};
+
+export default COLORS;
