@@ -34,18 +34,8 @@ const meetingSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
-    isRecurring: {
-      type: Boolean,
-      default: false,
-    },
-    recurrencePattern: {
-      type: String, // e.g., "DAILY", "WEEKLY", "MONTHLY"
-      default: null,
-    },
-    deletedAt: {
-      type: Date,
-      default: null,
-    },
+    
+   
   },
   { timestamps: true }
 );
