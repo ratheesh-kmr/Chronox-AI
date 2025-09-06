@@ -19,8 +19,6 @@ const createMeeting = asyncHandler(async (req, res) => {
     endTime,
     participants,
     createdBy: req.user._id,
-    isRecurring,
-    recurrencePattern,
   });
 
   res.status(201).json(meeting);
