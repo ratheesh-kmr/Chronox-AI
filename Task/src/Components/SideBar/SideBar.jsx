@@ -13,6 +13,7 @@ import {
   IconHelp,
   IconMailQuestion,
   IconMail,
+  IconCalendarClock,
 } from "@tabler/icons-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { io } from "socket.io-client";
@@ -34,6 +35,7 @@ const navMain = [
   { label: "Tasks", icon: <IconFileAi />, to: "/TeamLeadTaskPage", key: "TeamLeadTask" },
   { label: "Holidays", icon: <IconBeach />, to: "/HolidaysPage", key: "holidays" },
   { label: "Activity Log", icon: <IconHeartRateMonitor />, to: "/activity-log", key: "activity-log" },
+  
 ];
 
 const Utilities = [
@@ -41,6 +43,8 @@ const Utilities = [
   { label: "Extension Requests Page", icon: <IconMailQuestion />, to: "/ExtensionRequestsPage", key: "ExtensionRequestsPage" },
   { label: "Extension Requests Page", icon: <IconMailQuestion />, to: "/TeamLeadExtensionRequestsPage", key: "TeamLeadExtensionRequestsPage" },
   { label: "Mail", icon: <IconMail />, to: "/Mail", key: "Mail" },
+  { label: "Meetings", icon: <IconCalendarClock />, to: "/MeetingsPage", key: "Meetings" },
+
 ];
 
 const navSecondary = [
@@ -50,10 +54,10 @@ const navSecondary = [
 
 // Role-based menu access
 const roleMenus = {
-  SUPER_ADMIN: { navMain: ["dashboard", "users", "teams", "projects", "AdminTasks", "holidays", "activity-log"], Utilities: ["reports", "milestones", "ExtensionRequestsPage", "Mail"], navSecondary: ["profile", "help"] },
-  ADMIN: { navMain: ["dashboard", "users", "teams", "projects", "AdminTasks", "holidays", "activity-log"], Utilities: ["reports", "milestones", "ExtensionRequestsPage", "Mail"], navSecondary: ["profile", "help"] },
-  PROJECT_LEAD: { navMain: ["dashboard", "teams", "projects", "AdminTasks", "holidays"], Utilities: ["milestones"], navSecondary: ["profile", "help", "ExtensionRequestsPage", "Mail"] },
-  TEAM_LEAD: { navMain: ["TeamLeadDashboard", "TeamLeadPage","TeamLeadProjectsPage", "TeamLeadTask", "holidays"], Utilities: ["Mail" , "TeamLeadExtensionRequestsPage"], navSecondary: ["profile", "help"] },
+  SUPER_ADMIN: { navMain: ["dashboard", "users", "teams", "projects", "AdminTasks", "holidays", "activity-log"], Utilities: ["reports", "milestones", "ExtensionRequestsPage", "Mail","Meetings"], navSecondary: ["profile", "help"] },
+  ADMIN: { navMain: ["dashboard", "users", "teams", "projects", "AdminTasks", "holidays", "activity-log"], Utilities: ["reports", "milestones", "ExtensionRequestsPage", "Mail","Meetings"], navSecondary: ["profile", "help"] },
+  PROJECT_LEAD: { navMain: ["dashboard", "teams", "projects", "AdminTasks", "holidays"], Utilities: ["milestones"], navSecondary: ["profile", "help", "ExtensionRequestsPage", "Mail","Meetings"] },
+  TEAM_LEAD: { navMain: ["TeamLeadDashboard", "TeamLeadPage","TeamLeadProjectsPage", "TeamLeadTask", "holidays"], Utilities: ["Mail" , "TeamLeadExtensionRequestsPage","Meetings"], navSecondary: ["profile", "help"] },
   EMPLOYEE: { navMain: ["EmployeeDashboard", "EmployeeTask", "EmployeeProjectsPage", "holidays"], Utilities: ["Mail"], navSecondary: ["profile", "help"] },
 };
 
