@@ -40,6 +40,8 @@ import TeamLeadDashboard from "./Components/Dashboard/TeamLeadDashboard.jsx";
 import TeamLeadTaskPage from "./Pages/TeamLeadPage/TeamLeadTask/TeamLeadTaskPage.jsx";
 import TeamLeadExtensionRequestsPage from "./Pages/PendingApprovalPage/TeamLeadExtenstionRequestPage.jsx";
 import TeamLeadProjectsPage from "./Pages/ProjectPage/TeamLead/TeamLeadProjectPage.jsx";
+import MeetingsPage from "./Pages/MeetingPage/AdminMeetingPage.jsx";
+
 
 // Main routes
 const MainRoutes = () => {
@@ -196,6 +198,16 @@ const MainRoutes = () => {
           </PrivateRoute>
         }
       />
+
+      <Route
+        path="/MeetingsPage"
+        element={
+          <PrivateRoute allowedRoles={["admin", "project_lead", "super_admin"]}>
+            {renderWithLayout(MeetingsPage)}
+          </PrivateRoute>
+        }
+      />
+
 
       <Route
         path="/ProjectPage/:projectId"
