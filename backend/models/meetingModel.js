@@ -15,6 +15,18 @@ const meetingSchema = new mongoose.Schema(
       type: Date,
       required: [true, "Meeting date is required"],
     },
+    link: {
+      type: String,
+      default: "",
+    },
+
+    mode: {
+      type: String,
+      default: "Online",
+      enum: ["Offline", "Online"],
+    },
+    
+    
     startTime: {
       type: String, // e.g., "14:00"
       required: [true, "Meeting start time is required"],
