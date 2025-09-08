@@ -219,6 +219,12 @@ const enhancedApiService = {
   }
 },
 
+async fetchMeetings() {
+  const res = await axiosInstance.get("api/meetings");
+  return res.data;
+},
+
+
   async fetchTopPerformers() {
     return [
       { id: 1, name: "Mike Johnson", completedTasks: 31, efficiency: 95, avatar: "/api/placeholder/32/32" },
@@ -498,6 +504,7 @@ const Dashboard = () => {
     { name: 'Risk Analysis', fn: enhancedApiService.fetchRiskAnalysis, setter: setRiskAnalysis },
     { name: 'Time Tracking', fn: enhancedApiService.fetchTimeTracking, setter: setTimeTracking },
     { name: 'Notifications', fn: enhancedApiService.fetchNotifications, setter: setNotifications },
+    { name: 'Next Meeting', fn: enhancedApiService.fetchMeetings, setter: setNextMeeting },
   ];
 
   const loadDashboardData = async () => {
@@ -813,7 +820,7 @@ const Dashboard = () => {
         </WidgetCard>
 
         {/* Next Meeting */}
-        {/* <WidgetCard title="Next Meeting">
+         <WidgetCard title="Next Meeting">
           {nextMeeting ? (
             <div className="space-y-3">
               <div className="flex items-center gap-3">
@@ -841,16 +848,16 @@ const Dashboard = () => {
               <p className="text-gray-500 text-sm">No upcoming meetings</p>
             </div>
           )}
-        </WidgetCard> */}
+        </WidgetCard>
 
         {/* Overdue Tasks */}
  
     
 
 
-        <WidgetCard title="Overdue Tasks">
+        <WidgetCard title="Overdue Tasks" className="col-span-1 md:col-span-2" >
           {overdueTasks && overdueTasks.length > 0 ? (
-            <div className="space-y-3">
+            <div className="space-y-3 ">
               {overdueTasks.slice(0, 4).map((task) => (
                 <div key={task.id} className="relative p-4 bg-white border border-red-200 rounded-xl shadow-sm hover:shadow-md transition-shadow">
                   {/* Priority indicator line */}
