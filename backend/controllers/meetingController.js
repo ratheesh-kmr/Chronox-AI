@@ -4,7 +4,7 @@ const User = require("../models/userModel");
 
 
 const createMeeting = asyncHandler(async (req, res) => {
-  const { title, description, date, startTime, endTime, participants, isRecurring, recurrencePattern } = req.body;
+  const { title, description, date, link , mode ,startTime, endTime, participants, } = req.body;
 
   if (!title || !date || !startTime || !endTime) {
     res.status(400);
@@ -17,6 +17,8 @@ const createMeeting = asyncHandler(async (req, res) => {
     date,
     startTime,
     endTime,
+    link,
+    mode,
     participants,
     createdBy: req.user._id,
   });
