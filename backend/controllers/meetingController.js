@@ -1,27 +1,61 @@
 const asyncHandler = require("express-async-handler");
 const Meeting = require("../models/meetingModel");
 const User = require("../models/userModel");
+const Notification = require("../models/notificationModel");
 
 
 const createMeeting = asyncHandler(async (req, res) => {
-  const { title, description, date, link , mode ,startTime, endTime, participants, } = req.body;
+  const { title, description, date, mode, startTime, endTime, participants } = req.body;
 
   if (!title || !date || !startTime || !endTime) {
     res.status(400);
     throw new Error("Please provide title, date, start and end time");
   }
 
-  const meeting = await Meeting.create({
+  // Step 1: Create meeting without link (so MongoDB generates _id)
+  let meeting = await Meeting.create({
     title,
     description,
     date,
     startTime,
     endTime,
-    link,
     mode,
     participants,
     createdBy: req.user._id,
   });
+
+  // Step 2: Use meeting._id to generate unique Jitsi link
+  const roomName = `Chronox-Meeting-${meeting._id}`;
+  const jitsiLink = `https://meet.jit.si/${roomName}`;
+
+  // Step 3: Update meeting with the generated link
+  meeting.link = jitsiLink;
+  await meeting.save();
+
+  // 🔔 Notify all participants
+  if (participants && participants.length > 0) {
+    for (const userId of participants) {
+      const notif = await Notification.create({
+        user: userId,
+        title: "New Meeting Scheduled",
+        message: `You have been invited to the meeting "${title}" scheduled on ${new Date(date).toLocaleDateString()} from ${startTime} to ${endTime}.`,
+        type: "MEETING",
+        link: `/MeetingsPage`, 
+      });
+
+      req.io.to(userId.toString()).emit("new_notification", notif);
+    }
+  }
+
+  // 🔔 Notify the creator as confirmation (optional)
+  const creatorNotif = await Notification.create({
+    user: req.user._id,
+    title: "Meeting Created",
+    message: `Your meeting "${title}" has been scheduled successfully.`,
+    type: "MEETING",
+    link: `/MeetingsPage`,
+  });
+  req.io.to(req.user._id.toString()).emit("new_notification", creatorNotif);
 
   res.status(201).json(meeting);
 });
@@ -60,11 +94,41 @@ const updateMeeting = asyncHandler(async (req, res) => {
     throw new Error("Meeting not found");
   }
 
+  // Update meeting
   const updatedMeeting = await Meeting.findByIdAndUpdate(
     req.params.id,
     req.body,
     { new: true }
   );
+
+  // 🔔 Notify all participants about the update
+  if (updatedMeeting.participants && updatedMeeting.participants.length > 0) {
+    for (const userId of updatedMeeting.participants) {
+      const notif = await Notification.create({
+        user: userId,
+        title: "Meeting Updated",
+        message: `The meeting "${updatedMeeting.title}" scheduled on ${new Date(
+          updatedMeeting.date
+        ).toLocaleDateString()} from ${updatedMeeting.startTime} to ${
+          updatedMeeting.endTime
+        } has been updated.`,
+        type: "MEETING",
+        link: `/MeetingsPage`,
+      });
+
+      req.io.to(userId.toString()).emit("new_notification", notif);
+    }
+  }
+
+  // 🔔 Optionally, notify the creator too
+  const creatorNotif = await Notification.create({
+    user: meeting.createdBy,
+    title: "Meeting Updated",
+    message: `Your meeting "${updatedMeeting.title}" has been updated successfully.`,
+    type: "MEETING",
+    link: `/MeetingsPage`,
+  });
+  req.io.to(meeting.createdBy.toString()).emit("new_notification", creatorNotif);
 
   res.status(200).json(updatedMeeting);
 });
