@@ -6,7 +6,7 @@ const notificationSchema = new mongoose.Schema({
   user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true }, // recipient
   title: { type: String, required: true },
   message: { type: String, required: true },
-  type: { type: String, enum: ["TASK", "PROJECT", "MILESTONE", "SYSTEM","USER_APPROVAL"], default: "SYSTEM" },
+  type: { type: String, enum: ["TASK", "PROJECT", "MILESTONE", "SYSTEM","USER_APPROVAL","MEETING"], default: "SYSTEM" },
   read: { type: Boolean, default: false },
   link: { type: String }, 
   createdAt: { type: Date, default: Date.now },
