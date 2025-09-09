@@ -1,11 +1,13 @@
 import { useEffect, useState, useRef } from "react";
 import { fetchMeetings, createMeeting, updateMeeting, deleteMeeting } from "../../Services/meetingServices";
 import { fetchUser } from "../../Services/services";
-import { format } from "date-fns";
-import { PlusCircle, Pencil, Trash2, CalendarDays, Users, Clock, ChevronDown, X } from "lucide-react";
+import { format, parseISO, isAfter, isBefore, isValid } from "date-fns";
+import { PlusCircle, Pencil, Trash2, CalendarDays, Users, Clock, ChevronDown, X, Video } from "lucide-react";
 import { toast } from "react-toastify";
 import { motion, AnimatePresence } from "framer-motion";
-import { isAfter, isBefore, parse, parseISO } from "date-fns";
+import Swal from "sweetalert2";
+import "sweetalert2/dist/sweetalert2.min.css";
+import { JitsiMeeting } from "@jitsi/react-sdk";
 
 export default function MeetingsPage() {
   const [meetings, setMeetings] = useState([]);
@@ -14,7 +16,6 @@ export default function MeetingsPage() {
     title: "",
     description: "",
     date: "",
-    link: "",
     mode: "Online",
     startTime: "",
     endTime: "",
@@ -24,6 +25,7 @@ export default function MeetingsPage() {
   const [editId, setEditId] = useState(null);
   const [showParticipantsDropdown, setShowParticipantsDropdown] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [activeMeeting, setActiveMeeting] = useState(null);
   const dropdownRef = useRef(null);
 
   useEffect(() => {
@@ -38,15 +40,13 @@ export default function MeetingsPage() {
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [dropdownRef]);
 
   const loadMeetings = async () => {
     try {
       const data = await fetchMeetings();
-      setMeetings(data);
+      setMeetings(Array.isArray(data) ? data : []);
     } catch (error) {
       toast.error("Failed to load meetings");
     }
@@ -55,28 +55,75 @@ export default function MeetingsPage() {
   const loadUsers = async () => {
     try {
       const data = await fetchUser();
-      setUsers(data);
+      setUsers(Array.isArray(data) ? data : []);
     } catch (error) {
       toast.error("Failed to load users");
     }
   };
 
+  const resetForm = () => {
+    setForm({
+      title: "",
+      description: "",
+      date: "",
+      mode: "Online",
+      startTime: "",
+      endTime: "",
+      participants: [],
+    });
+    setIsEditing(false);
+    setEditId(null);
+    setShowForm(false);
+  };
+
+  const toDateFromDateAndTime = (dateStr, timeStr) => {
+    if (!dateStr) return null;
+    let base = parseISO(dateStr);
+    if (!isValid(base)) base = new Date(dateStr);
+    if (!timeStr) return base;
+    const [hh, mm] = (timeStr || "").split(":").map((n) => Number(n) || 0);
+    return new Date(base.getFullYear(), base.getMonth(), base.getDate(), hh, mm, 0, 0);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    try {
-      if (form.mode === "Online" && !form.link.trim()) {
-        toast.error("Meeting link is required for Online mode");
-        return;
-      }
 
-      if (isEditing) {
-        await updateMeeting(editId, form);
+    if (!form.title.trim()) {
+      await Swal.fire({ icon: "error", title: "Title required", text: "Please enter a meeting title." });
+      return;
+    }
+    if (!form.date) {
+      await Swal.fire({ icon: "error", title: "Date required", text: "Please select a meeting date." });
+      return;
+    }
+    if (!form.startTime) {
+      await Swal.fire({ icon: "error", title: "Start time required", text: "Please select a start time." });
+      return;
+    }
+
+    const startDT = toDateFromDateAndTime(form.date, form.startTime);
+    const endDT = toDateFromDateAndTime(form.date, form.endTime || form.startTime);
+    const now = new Date();
+
+    if (endDT && isBefore(endDT, startDT)) {
+      await Swal.fire({ icon: "error", title: "Invalid time range", text: "End time must be after start time." });
+      return;
+    }
+    if (endDT && isBefore(endDT, now)) {
+      await Swal.fire({ icon: "error", title: "Date in past", text: "Meeting end time is already in the past." });
+      return;
+    }
+
+    const payload = { ...form }; // link is auto-generated in backend
+
+    try {
+      if (isEditing && editId) {
+        await updateMeeting(editId, payload);
         toast.success("Meeting updated successfully");
       } else {
-        await createMeeting(form);
+        await createMeeting(payload);
         toast.success("Meeting created successfully");
       }
-
       resetForm();
       loadMeetings();
     } catch (error) {
@@ -86,45 +133,39 @@ export default function MeetingsPage() {
 
   const handleEdit = (meeting) => {
     setForm({
-      title: meeting.title,
-      description: meeting.description,
-      date: meeting.date.split("T")[0],
-      startTime: meeting.startTime,
-      endTime: meeting.endTime,
-      mode: meeting.mode,
-      link: meeting.link || "",
-      participants: meeting.participants.map((p) => p._id),
+      title: meeting.title || "",
+      description: meeting.description || "",
+      date: (meeting.date || "").split("T")[0] || (meeting.date || ""),
+      startTime: meeting.startTime || "",
+      endTime: meeting.endTime || "",
+      mode: meeting.mode || "Online",
+      participants: (meeting.participants || []).map((p) => (typeof p === "string" ? p : p?._id)),
     });
     setIsEditing(true);
     setEditId(meeting._id);
     setShowForm(true);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this meeting?")) return;
-    try {
-      await deleteMeeting(id);
-      toast.success("Meeting deleted");
-      loadMeetings();
-    } catch {
-      toast.error("Error deleting meeting");
-    }
-  };
-
-  const resetForm = () => {
-    setForm({
-      title: "",
-      description: "",
-      date: "",
-      link: "",
-      mode: "Online",
-      startTime: "",
-      endTime: "",
-      participants: [],
+    const result = await Swal.fire({
+      title: "Delete meeting?",
+      text: "This action cannot be undone.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Delete",
+      cancelButtonText: "Cancel",
     });
-    setIsEditing(false);
-    setEditId(null);
-    setShowForm(false);
+
+    if (result.isConfirmed) {
+      try {
+        await deleteMeeting(id);
+        toast.success("Meeting deleted");
+        loadMeetings();
+      } catch (err) {
+        toast.error("Error deleting meeting");
+      }
+    }
   };
 
   const toggleParticipant = (userId) => {
@@ -136,29 +177,30 @@ export default function MeetingsPage() {
     });
   };
 
-  const getMeetingDateTime = (meeting, useEnd = false) => {
-  const baseDate = parseISO(meeting.date); 
-  const timeStr = useEnd ? meeting.endTime : meeting.startTime; 
-  const [hours, minutes] = timeStr.split(":").map(Number);
-  return new Date(
-    baseDate.getFullYear(),
-    baseDate.getMonth(),
-    baseDate.getDate(),
-    hours,
-    minutes
-  );
-};
+  const now = new Date();
+  const upcomingMeetings = meetings
+    .map((m) => ({ ...m, _end: toDateFromDateAndTime(m.date, m.endTime || m.startTime) }))
+    .filter((m) => m._end && isAfter(m._end, now))
+    .sort((a, b) => a._end - b._end);
 
-const now = new Date();
-const upcomingMeetings = meetings.filter((m) =>
-  isAfter(getMeetingDateTime(m, true), now) 
-);
-const completedMeetings = meetings.filter((m) =>
-  isBefore(getMeetingDateTime(m, true), now) 
-);
+  const completedMeetings = meetings
+    .map((m) => ({ ...m, _end: toDateFromDateAndTime(m.date, m.endTime || m.startTime) }))
+    .filter((m) => m._end && !isAfter(m._end, now))
+    .sort((a, b) => b._end - a._end);
+
+  const formatTime12 = (dateOrTimeStr, dateStr) => {
+    let d = null;
+    if (!dateOrTimeStr) return "";
+    if (Object.prototype.toString.call(dateOrTimeStr) === "[object Date]") {
+      d = dateOrTimeStr;
+    } else {
+      d = toDateFromDateAndTime(dateStr || new Date().toISOString().split("T")[0], dateOrTimeStr);
+    }
+    return isValid(d) ? format(d, "h:mm a") : dateOrTimeStr;
+  };
 
   return (
-    <div className="p-4 sm:p-6 space-y-6 w-full max-w-6xl mx-auto">
+    <div className="p-6 w-full bg-gradient-to-br from-purple-100 via-purple-200 to-pink-100 rounded-2xl min-h-screen">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold text-gray-800">Meetings</h1>
         <button
@@ -170,6 +212,63 @@ const completedMeetings = meetings.filter((m) =>
         </button>
       </div>
 
+      {/* 🔹 Embedded Jitsi Modal */}
+      <AnimatePresence>
+        {activeMeeting && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center z-50"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              transition={{ duration: 0.3 }}
+              className="bg-white rounded-2xl shadow-xl w-[90%] h-[85%] overflow-hidden flex flex-col"
+            >
+              <div className="flex justify-between items-center px-4 py-2 border-b">
+                <h2 className="text-lg font-semibold">{activeMeeting.title}</h2>
+                <button
+                  onClick={() => setActiveMeeting(null)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+             <div className="fixed inset-0 z-50 bg-black">
+                <JitsiMeeting
+                  domain="meet.jit.si"
+                  roomName={activeMeeting.link.split("/").pop()}
+                  userInfo={{
+                    displayName: JSON.parse(sessionStorage.getItem("userData"))?.username || "Guest"
+                  }}
+
+                  interfaceConfigOverwrite={{
+                    SHOW_JITSI_WATERMARK: false,
+                    SHOW_BRAND_WATERMARK: false,
+                    SHOW_POWERED_BY: false,
+                  }}
+                  getIFrameRef={(iframeRef) => {
+                    iframeRef.style.height = "100%";
+                    iframeRef.style.width = "100%";
+                  }}
+                />
+
+                {/* Chronox Logo Overlay */}
+                <img
+                  src="/Chronox_logo.png"
+                  alt="Chronox"
+                  className="absolute top-3 left-7 w-19 pointer-events-none bg-black"
+                />
+              </div>
+
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Expandable Form */}
       <AnimatePresence>
         {showForm && (
@@ -177,10 +276,10 @@ const completedMeetings = meetings.filter((m) =>
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.4 }}
+            transition={{ duration: 0.35 }}
             className="overflow-hidden"
           >
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8 ">
               <form onSubmit={handleSubmit} className="space-y-6">
                 {/* Title */}
                 <div>
@@ -207,7 +306,7 @@ const completedMeetings = meetings.filter((m) =>
                   />
                 </div>
 
-                {/* Date, Time, Mode, Link */}
+                {/* Date, Time, Mode */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                   <div>
                     <label htmlFor="date" className="block text-sm font-medium text-gray-700">Date</label>
@@ -254,17 +353,15 @@ const completedMeetings = meetings.filter((m) =>
                   </div>
                 </div>
 
-                {/* Meeting Link (only if Online) */}
+                {/* Info: Auto-generated meeting link */}
                 {form.mode === "Online" && (
                   <div>
-                    <label htmlFor="link" className="block text-sm font-medium text-gray-700">Meeting Link</label>
+                    <label className="block text-sm font-medium text-gray-700">Meeting Link</label>
                     <input
-                      id="link"
                       type="text"
-                      value={form.link}
-                      onChange={(e) => setForm({ ...form, link: e.target.value })}
-                      className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-3"
-                      required={form.mode === "Online"}
+                      value="Will be auto-generated after saving"
+                      readOnly
+                      className="mt-1 block w-full border-gray-200 bg-gray-100 rounded-md shadow-sm sm:text-sm p-3 text-gray-500"
                     />
                   </div>
                 )}
@@ -355,113 +452,120 @@ const completedMeetings = meetings.filter((m) =>
         )}
       </AnimatePresence>
 
-      {/* Meeting List */}
-     <section>
-      <h2 className="text-xl font-semibold text-gray-800 mb-4">
-        Upcoming Meetings ({upcomingMeetings.length})
-      </h2>
-      <div className="space-y-4">
-        {upcomingMeetings.length === 0 ? (
-          <p className="text-gray-500 text-center py-8 border border-gray-200 rounded-xl bg-white shadow-sm">
-            No upcoming meetings.
-          </p>
-        ) : (
-          upcomingMeetings.map((meeting) => (
-            <div
-              key={meeting._id}
-              className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 flex flex-col md:flex-row justify-between items-start md:items-center"
-            >
-              <div className="flex-1 min-w-0">
-                <h3 className="text-lg font-bold text-gray-800 mb-1">{meeting.title}</h3>
-                <p className="text-gray-600 text-sm mb-2 line-clamp-2">{meeting.description}</p>
-                <div className="flex flex-wrap items-center gap-x-4 text-gray-500 text-xs">
-                  <span className="flex items-center gap-1">
-                    <CalendarDays size={14} />
-                    {format(new Date(meeting.date), "PPP")}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Clock size={14} />
-                    {meeting.startTime} - {meeting.endTime}
-                  </span>
-                  {meeting.participants?.length > 0 && (
-                    <span className="flex items-center gap-1">
-                      <Users size={14} />
-                      {meeting.participants.map((p) => p.name).join(", ")}
-                    </span>
-                  )}
-                  {meeting.link && meeting.mode === "Online" && (
-                    <span className="flex items-center gap-1">
-                      <a
-                        href={meeting.link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-indigo-600 hover:underline"
-                      >
-                        Join Link
-                      </a>
-                    </span>
-                  )}
-                  <span className="flex items-center gap-1">Mode: {meeting.mode}</span>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 mt-4 md:mt-0 md:ml-4">
-                <button
-                  onClick={() => handleEdit(meeting)}
-                  className="p-2 text-indigo-600 rounded-full hover:bg-indigo-50"
-                  title="Edit"
-                >
-                  <Pencil size={20} />
-                </button>
-                <button
-                  onClick={() => handleDelete(meeting._id)}
-                  className="p-2 text-red-600 rounded-full hover:bg-red-50"
-                  title="Delete"
-                >
-                  <Trash2 size={20} />
-                </button>
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-    </section>
+      {/* Upcoming Meetings */}
+      <section>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-bold text-gray-800">
+            Upcoming Meetings
+            <span className="ml-2 text-sm font-medium text-gray-500">({upcomingMeetings.length})</span>
+          </h2>
+        </div>
 
-    {/* Completed Meetings */}
-    <section className="mt-10">
-      <h2 className="text-xl font-semibold text-gray-800 mb-4">
-        Completed Meetings ({completedMeetings.length})
-      </h2>
-      <div className="space-y-4">
-        {completedMeetings.length === 0 ? (
-          <p className="text-gray-500 text-center py-8 border border-gray-200 rounded-xl bg-white shadow-sm">
-            No completed meetings.
-          </p>
+        {upcomingMeetings.length === 0 ? (
+          <p className="text-gray-500 text-center py-8 border border-dashed border-gray-300 rounded-xl bg-gray-50 shadow-inner">No upcoming meetings.</p>
         ) : (
-          completedMeetings.map((meeting) => (
-            <div
-              key={meeting._id}
-              className="bg-gray-50 p-6 rounded-xl shadow-sm border border-gray-200 flex flex-col md:flex-row justify-between items-start md:items-center"
-            >
-              <div className="flex-1 min-w-0 opacity-70">
-                <h3 className="text-lg font-bold text-gray-700 mb-1">{meeting.title}</h3>
-                <p className="text-gray-500 text-sm mb-2 line-clamp-2">{meeting.description}</p>
-                <div className="flex flex-wrap items-center gap-x-4 text-gray-400 text-xs">
-                  <span className="flex items-center gap-1">
-                    <CalendarDays size={14} />
-                    {format(new Date(meeting.date), "PPP")}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Clock size={14} />
-                    {meeting.startTime} - {meeting.endTime}
-                  </span>
-                  <span className="flex items-center gap-1">Mode: {meeting.mode}</span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {upcomingMeetings.map((meeting) => {
+              const start = toDateFromDateAndTime(meeting.date, meeting.startTime);
+              const end = toDateFromDateAndTime(meeting.date, meeting.endTime || meeting.startTime);
+              const dateLabel = isValid(parseISO(meeting.date)) ? format(parseISO(meeting.date), "PPP") : meeting.date;
+              return (
+                <div key={meeting._id} className="group bg-white rounded-2xl shadow-md border border-gray-200 hover:shadow-lg transition-all duration-300 p-5 flex flex-col justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-800 group-hover:text-indigo-600 transition">{meeting.title}</h3>
+                    <p className="text-gray-600 text-sm mt-1 line-clamp-2">{meeting.description || "No description provided."}</p>
+                  </div>
+
+                  <div className="mt-4 space-y-2 text-sm text-gray-600">
+                    <div className="flex items-center gap-2">
+                      <CalendarDays size={16} className="text-indigo-500" />
+                      <span>{dateLabel}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Clock size={16} className="text-pink-500" />
+                      <span>{start ? format(start, "h:mm a") : meeting.startTime} – {end ? format(end, "h:mm a") : meeting.endTime}</span>
+                    </div>
+                    {meeting.participants?.length > 0 && (
+                      <div className="flex items-center gap-2">
+                        <Users size={16} className="text-green-500" />
+                        <span className="truncate">{(meeting.participants || []).map((p) => (typeof p === "string" ? users.find((u) => u._id === p)?.name || p : p.name)).join(", ")}</span>
+                      </div>
+                    )}
+
+                    <span className="inline-block text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-700">Mode: {meeting.mode}</span>
+                  </div>
+
+                  <div className="flex items-center gap-2 mt-4 border-t pt-3">
+                    <button
+                      onClick={() => handleEdit(meeting)}
+                      className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition"
+                    >
+                      <Pencil size={16} />
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => handleDelete(meeting._id)}
+                      className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition"
+                    >
+                      <Trash2 size={16} />
+                      Delete
+                    </button>
+
+                    {meeting.link && meeting.mode === "Online" && (
+                      <button
+                        onClick={() => setActiveMeeting(meeting)}
+                        className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition"
+                      >
+                        <Video size={16} />
+                        Join
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </div>
-          ))
+              );
+            })}
+          </div>
         )}
-      </div>
-    </section>
+      </section>
+
+      {/* Completed Meetings */}
+      <section className="mt-10">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-bold text-gray-800">Completed Meetings <span className="ml-2 text-sm font-medium text-gray-500">({completedMeetings.length})</span></h2>
+        </div>
+
+        {completedMeetings.length === 0 ? (
+          <p className="text-gray-500 text-center py-8 border border-dashed border-gray-300 rounded-xl bg-gray-50 shadow-inner">No completed meetings.</p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {completedMeetings.map((meeting) => {
+              const start = toDateFromDateAndTime(meeting.date, meeting.startTime);
+              const end = toDateFromDateAndTime(meeting.date, meeting.endTime || meeting.startTime);
+              const dateLabel = isValid(parseISO(meeting.date)) ? format(parseISO(meeting.date), "PPP") : meeting.date;
+              return (
+                <div key={meeting._id} className="group bg-gray-50 rounded-2xl shadow-md border border-gray-200 hover:shadow-lg transition-all duration-300 p-5 flex flex-col justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-700 opacity-80 group-hover:text-indigo-600 transition">{meeting.title}</h3>
+                    <p className="text-gray-500 text-sm mt-1 line-clamp-2">{meeting.description || "No description provided."}</p>
+                  </div>
+
+                  <div className="mt-4 space-y-2 text-sm text-gray-500">
+                    <div className="flex items-center gap-2">
+                      <CalendarDays size={16} className="text-indigo-400" />
+                      <span>{dateLabel}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Clock size={16} className="text-pink-400" />
+                      <span>{start ? format(start, "h:mm a") : meeting.startTime} – {end ? format(end, "h:mm a") : meeting.endTime}</span>
+                    </div>
+                    <span className="inline-block text-xs px-2 py-1 rounded-full bg-gray-200 text-gray-600">Mode: {meeting.mode}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
     </div>
   );
 }
