@@ -136,16 +136,16 @@ const updateMeeting = asyncHandler(async (req, res) => {
 const deleteMeeting = asyncHandler(async (req, res) => {
   const meeting = await Meeting.findById(req.params.id);
 
-  if (!meeting || meeting.deletedAt) {
+  if (!meeting) {
     res.status(404);
     throw new Error("Meeting not found");
   }
 
-  meeting.deletedAt = new Date();
-  await meeting.save();
+  await Meeting.findByIdAndDelete(req.params.id);
 
   res.status(200).json({ message: "Meeting deleted successfully" });
 });
+
 
 const getUserMeetings = asyncHandler(async (req, res) => {
   try {
@@ -165,6 +165,8 @@ const getUserMeetings = asyncHandler(async (req, res) => {
     res.status(500).json({ message: "Failed to fetch meetings" });
   }
 });
+
+
 
 
 module.exports = {
