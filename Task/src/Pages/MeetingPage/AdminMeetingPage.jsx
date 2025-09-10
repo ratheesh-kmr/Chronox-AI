@@ -512,14 +512,19 @@ export default function MeetingsPage() {
                     </button>
 
                     {meeting.link && meeting.mode === "Online" && (
-                      <button
-                        onClick={() => setActiveMeeting(meeting)}
-                        className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition"
-                      >
-                        <Video size={16} />
-                        Join
-                      </button>
-                    )}
+  <button
+    onClick={() => {
+      const url = meeting.link;
+      // Open in a new window with defined size (or "_blank" for new tab)
+      window.open(url, "_blank", "width=1200,height=800");
+    }}
+    className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition"
+  >
+    <Video size={16} />
+    Join
+  </button>
+)}
+
                   </div>
                 </div>
               );
