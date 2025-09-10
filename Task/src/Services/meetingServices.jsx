@@ -4,7 +4,7 @@ import { data } from "react-router-dom";
 const token = sessionStorage.getItem("token");
 
 const axiosInstance = axios.create({
-  baseURL: "https://chronox-server.xicsolutions.in/",
+  baseURL: "http://localhost:5000/",
   headers: {
     authorization: `Bearer ${token}`,
   },
