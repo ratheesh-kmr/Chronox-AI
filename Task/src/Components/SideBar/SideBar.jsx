@@ -44,7 +44,8 @@ const Utilities = [
   { label: "Extension Requests Page", icon: <IconMailQuestion />, to: "/TeamLeadExtensionRequestsPage", key: "TeamLeadExtensionRequestsPage" },
   { label: "Mail", icon: <IconMail />, to: "/Mail", key: "Mail" },
   { label: "Meetings", icon: <IconCalendarClock />, to: "/MeetingsPage", key: "Meetings" },
-
+  { label: "Meetings", icon: <IconCalendarClock />, to: "/UserMeetingsPage", key: "UserMeetings" },
+  
 ];
 
 const navSecondary = [
@@ -57,8 +58,8 @@ const roleMenus = {
   SUPER_ADMIN: { navMain: ["dashboard", "users", "teams", "projects", "AdminTasks", "holidays", "activity-log"], Utilities: ["reports", "milestones", "ExtensionRequestsPage", "Mail","Meetings"], navSecondary: ["profile", "help"] },
   ADMIN: { navMain: ["dashboard", "users", "teams", "projects", "AdminTasks", "holidays", "activity-log"], Utilities: ["reports", "milestones", "ExtensionRequestsPage", "Mail","Meetings"], navSecondary: ["profile", "help"] },
   PROJECT_LEAD: { navMain: ["dashboard", "teams", "projects", "AdminTasks", "holidays"], Utilities: ["milestones"], navSecondary: ["profile", "help", "ExtensionRequestsPage", "Mail","Meetings"] },
-  TEAM_LEAD: { navMain: ["TeamLeadDashboard", "TeamLeadPage","TeamLeadProjectsPage", "TeamLeadTask", "holidays"], Utilities: ["Mail" , "TeamLeadExtensionRequestsPage","Meetings"], navSecondary: ["profile", "help"] },
-  EMPLOYEE: { navMain: ["EmployeeDashboard", "EmployeeTask", "EmployeeProjectsPage", "holidays"], Utilities: ["Mail"], navSecondary: ["profile", "help"] },
+  TEAM_LEAD: { navMain: ["TeamLeadDashboard", "TeamLeadPage","TeamLeadProjectsPage", "TeamLeadTask", "holidays"], Utilities: ["Mail" , "TeamLeadExtensionRequestsPage","UserMeetings"], navSecondary: ["profile", "help"] },
+  EMPLOYEE: { navMain: ["EmployeeDashboard", "EmployeeTask", "EmployeeProjectsPage", "holidays"], Utilities: ["Mail","UserMeetings"], navSecondary: ["profile", "help"] },
 };
 
 const SideBar = ({ collapsed, onToggle }) => {
@@ -72,7 +73,8 @@ const SideBar = ({ collapsed, onToggle }) => {
   const [notificationCounts, setNotificationCounts] = useState({
     TASK: 0,
     PROJECT: 0,
-    TEAM: 0
+    TEAM: 0,
+    MEETING:0
   });
   const [socket, setSocket] = useState(null);
 
@@ -97,7 +99,8 @@ const SideBar = ({ collapsed, onToggle }) => {
         const counts = {
           TASK: notifications.filter(n => !n.read && n.type === "TASK").length,
           PROJECT: notifications.filter(n => !n.read && n.type === "PROJECT").length,
-          TEAM: notifications.filter(n => !n.read && n.type === "TEAM").length
+          TEAM: notifications.filter(n => !n.read && n.type === "TEAM").length,
+          MEETING: notifications.filter(n => !n.read && n.type === "MEETING").length
         };
         
         setNotificationCounts(counts);
@@ -110,7 +113,7 @@ const SideBar = ({ collapsed, onToggle }) => {
 
     // Listen for new notifications
     socketInstance.on("new_notification", (notification) => {
-      if (["TASK", "PROJECT", "TEAM"].includes(notification.type)) {
+      if (["TASK", "PROJECT", "TEAM","MEETING"].includes(notification.type)) {
         setNotificationCounts((prev) => ({
           ...prev,
           [notification.type]: prev[notification.type] + 1
@@ -139,7 +142,7 @@ const SideBar = ({ collapsed, onToggle }) => {
   // Listen for notifications being marked as read from the notification panel
   useEffect(() => {
     const handleNotificationRead = (event) => {
-      if (event.detail && ["TASK", "PROJECT", "TEAM"].includes(event.detail.type)) {
+      if (event.detail && ["TASK", "PROJECT", "TEAM","MEETING"].includes(event.detail.type)) {
         setNotificationCounts((prev) => ({
           ...prev,
           [event.detail.type]: Math.max(prev[event.detail.type] - 1, 0)
@@ -217,6 +220,7 @@ const NavSection = ({ title, items, notificationCounts, onNavigation, onToggle }
     if (key.includes("task")) return "TASK";
     if (key.includes("project")) return "PROJECT";
     if (key.includes("team")) return "TEAM";
+    if (key.includes("meeting")) return "MEETING";
     return null;
   };
 
