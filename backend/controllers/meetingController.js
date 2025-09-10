@@ -113,14 +113,13 @@ const updateMeeting = asyncHandler(async (req, res) => {
           updatedMeeting.endTime
         } has been updated.`,
         type: "MEETING",
-        link: `/MeetingsPage`,
+        link: `/UserMeetingsPage`,
       });
 
       req.io.to(userId.toString()).emit("new_notification", notif);
     }
   }
 
-  // 🔔 Optionally, notify the creator too
   const creatorNotif = await Notification.create({
     user: meeting.createdBy,
     title: "Meeting Updated",
@@ -148,10 +147,31 @@ const deleteMeeting = asyncHandler(async (req, res) => {
   res.status(200).json({ message: "Meeting deleted successfully" });
 });
 
+const getUserMeetings = asyncHandler(async (req, res) => {
+  try {
+    const userId = req.user._id; 
+
+    const meetings = await Meeting.find({
+      participants: userId,
+      deletedAt: null,
+    })
+      .populate("createdBy", "name email")
+      .populate("participants", "name email role")
+      .sort({ date: 1 });
+
+    res.status(200).json(meetings);
+  } catch (error) {
+    console.error("Error fetching user meetings:", error);
+    res.status(500).json({ message: "Failed to fetch meetings" });
+  }
+});
+
+
 module.exports = {
   createMeeting,
   getMeetings,
   getNextMeeting,
   updateMeeting,
   deleteMeeting,
+  getUserMeetings,
 };
