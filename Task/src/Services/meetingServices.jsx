@@ -4,7 +4,7 @@ import { data } from "react-router-dom";
 const token = sessionStorage.getItem("token");
 
 const axiosInstance = axios.create({
-  baseURL: "http://localhost:5000/",
+  baseURL: "https://chronox-server.xicsolutions.in/",
   headers: {
     authorization: `Bearer ${token}`,
   },
@@ -39,4 +39,15 @@ export const updateMeeting = async (id, meeting) => {
 export const deleteMeeting = async (id) => {
   const res = await axiosInstance.delete(`api/meetings/${id}`);
   return res.data;
+};
+
+export const fetchUserMeetings = async () => {
+  try {
+    const response = await axiosInstance.get("api/meetings/my-meetings");
+    console.log("response:",response.data)
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching user meetings:", error);
+    throw error;
+  }
 };
