@@ -6,6 +6,7 @@ const {
   getNextMeeting,
   updateMeeting,
   deleteMeeting,
+  getUserMeetings,
 } = require("../controllers/meetingController");
 const { authMiddleware } = require("../middleware/authMiddleware");
 
@@ -15,5 +16,6 @@ router.get("/", authMiddleware, getMeetings);
 router.get("/next", authMiddleware, getNextMeeting);
 router.put("/:id", authMiddleware, updateMeeting);
 router.delete("/:id", authMiddleware, deleteMeeting);
+router.get("/my-meetings", authMiddleware, getUserMeetings);
 
 module.exports = router;
