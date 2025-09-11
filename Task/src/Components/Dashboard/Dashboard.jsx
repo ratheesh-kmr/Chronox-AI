@@ -164,14 +164,12 @@ const enhancedApiService = {
   },
 
   // Next Meeting
-  async fetchNextMeeting() {
-    return {
-      title: "Sprint Planning",
-      date: "2025-08-25",
-      time: "10:00 AM",
-      attendees: 8
-    };
-  },
+  async fetchUserMeetings() {
+      const response = await axiosInstance.get("api/meetings/my-meetings");
+      console.log("response:",response.data)
+      return response.data;
+  
+ },
 
   // Projects
   async fetchProjects() {
@@ -497,14 +495,13 @@ const Dashboard = () => {
     { name: 'Dashboard Summary', fn: enhancedApiService.fetchDashboardSummary, setter: setStats },
     { name: 'Project Tasks', fn: enhancedApiService.getRecentTasks, setter: setProjectTasks },
     { name: 'Project Progress', fn: enhancedApiService.fetchProjectProgress, setter: setProjectProgress },
-    { name: 'Next Meeting', fn: enhancedApiService.fetchNextMeeting, setter: setNextMeeting },
+    { name: 'Next Meeting', fn: enhancedApiService.fetchUserMeetings, setter: setNextMeeting },
     { name: 'Team Members', fn: enhancedApiService.fetchTeamSummary, setter: setTeams },
     { name: 'Overdue Tasks', fn: enhancedApiService.fetchOverdueTasks, setter: setOverdueTasks },
     { name: 'Top Performers', fn: enhancedApiService.fetchTopPerformers, setter: setTopPerformers },
     { name: 'Risk Analysis', fn: enhancedApiService.fetchRiskAnalysis, setter: setRiskAnalysis },
     { name: 'Time Tracking', fn: enhancedApiService.fetchTimeTracking, setter: setTimeTracking },
     { name: 'Notifications', fn: enhancedApiService.fetchNotifications, setter: setNotifications },
-    { name: 'Next Meeting', fn: enhancedApiService.fetchMeetings, setter: setNextMeeting },
   ];
 
   const loadDashboardData = async () => {
@@ -820,35 +817,35 @@ const Dashboard = () => {
         </WidgetCard>
 
         {/* Next Meeting */}
-         <WidgetCard title="Next Meeting">
-          {nextMeeting ? (
-            <div className="space-y-3">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                  <Calendar className="w-5 h-5 text-purple-600" />
+          <WidgetCard title="Next Meeting">
+            {nextMeeting ? (
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                    <Calendar className="w-5 h-5 text-purple-600" />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-gray-800 text-sm">{nextMeeting.title}</h4>
+                    <p className="text-xs text-gray-500">{nextMeeting.date} at {nextMeeting.startTime}</p>
+                  </div>
                 </div>
-                <div>
-                  <h4 className="font-semibold text-gray-800 text-sm">{nextMeeting.title}</h4>
-                  <p className="text-xs text-gray-500">{nextMeeting.date} at {nextMeeting.time}</p>
+                <div className="flex items-center justify-between text-xs text-gray-500">
+                  <span className="flex items-center gap-1">
+                    <Users className="w-3 h-3" />
+                    {nextMeeting.participants} attendees
+                  </span>
+                  <button className="text-purple-600 hover:text-purple-800 font-medium">
+                    Join Meeting
+                  </button>
                 </div>
               </div>
-              <div className="flex items-center justify-between text-xs text-gray-500">
-                <span className="flex items-center gap-1">
-                  <Users className="w-3 h-3" />
-                  {nextMeeting.attendees} attendees
-                </span>
-                <button className="text-purple-600 hover:text-purple-800 font-medium">
-                  Join Meeting
-                </button>
+            ) : (
+              <div className="text-center py-8">
+                <Calendar className="mx-auto w-8 h-8 text-gray-400 mb-2" />
+                <p className="text-gray-500 text-sm">No upcoming meetings</p>
               </div>
-            </div>
-          ) : (
-            <div className="text-center py-8">
-              <Calendar className="mx-auto w-8 h-8 text-gray-400 mb-2" />
-              <p className="text-gray-500 text-sm">No upcoming meetings</p>
-            </div>
-          )}
-        </WidgetCard>
+            )}
+          </WidgetCard>
 
         {/* Overdue Tasks */}
  
