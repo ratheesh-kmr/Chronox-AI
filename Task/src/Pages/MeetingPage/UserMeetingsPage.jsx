@@ -191,7 +191,6 @@ export default function UserMeetingsPage() {
         </div>
       )}
 
-      {/* 🔹 Fullscreen Jitsi Panel with animation */}
       <AnimatePresence>
         {activeMeeting && (
           <motion.div
