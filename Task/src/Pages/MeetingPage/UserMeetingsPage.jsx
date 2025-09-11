@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { fetchUserMeetings } from "../../Services/meetingServices";
-import { format, isAfter, isBefore, isToday } from "date-fns";
+import { format, isAfter, isBefore, isToday, parseISO, isValid, isSameDay, isWithinInterval } from "date-fns";
 import {
   CalendarDays,
   Clock,
@@ -46,6 +46,38 @@ export default function UserMeetingsPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // ✅ Helper function to create date from date string and time string
+  const toDateFromDateAndTime = (dateStr, timeStr) => {
+    if (!dateStr) return null;
+    let base = parseISO(dateStr);
+    if (!isValid(base)) base = new Date(dateStr);
+    if (!timeStr) return base;
+    const [hh, mm] = (timeStr || "").split(":").map((n) => Number(n) || 0);
+    return new Date(base.getFullYear(), base.getMonth(), base.getDate(), hh, mm, 0, 0);
+  };
+
+  // ✅ Check if user can join the meeting (same date and within time range)
+  const canJoinMeeting = (meeting) => {
+    const now = new Date();
+    const meetingDate = parseISO(meeting.date);
+    
+    // Check if today is the meeting date
+    if (!isSameDay(now, meetingDate)) {
+      return false;
+    }
+    
+    const startTime = toDateFromDateAndTime(meeting.date, meeting.startTime);
+    const endTime = toDateFromDateAndTime(meeting.date, meeting.endTime || meeting.startTime);
+    
+    // If no end time, allow joining from start time onwards
+    if (!meeting.endTime) {
+      return isAfter(now, startTime) || now.getTime() === startTime.getTime();
+    }
+    
+    // Check if current time is within the meeting time interval
+    return isWithinInterval(now, { start: startTime, end: endTime });
   };
 
   // ✅ Meeting status color & label
@@ -99,6 +131,7 @@ export default function UserMeetingsPage() {
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {filteredMeetings.map((meeting) => {
             const status = getMeetingStatus(meeting);
+            const canJoin = canJoinMeeting(meeting);
             const statusColor =
               status === "Today"
                 ? "bg-yellow-100 text-yellow-700"
@@ -134,8 +167,20 @@ export default function UserMeetingsPage() {
 
                 {meeting.mode === "Online" && meeting.link && (
                   <button
-                    onClick={() => setActiveMeeting(meeting)}
-                    className="mt-4 flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 transition"
+                    onClick={() => {
+                      if (canJoin) {
+                        setActiveMeeting(meeting);
+                      } else {
+                        toast.warning("Meeting can only be joined on the scheduled date during the meeting time.");
+                      }
+                    }}
+                    disabled={!canJoin}
+                    className={`mt-4 flex items-center gap-2 px-4 py-2 rounded-xl transition ${
+                      canJoin 
+                        ? "bg-indigo-600 text-white hover:bg-indigo-700" 
+                        : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                    }`}
+                    title={!canJoin ? "Meeting can only be joined on the scheduled date during the meeting time" : "Join meeting"}
                   >
                     <Video size={18} /> Join
                   </button>
