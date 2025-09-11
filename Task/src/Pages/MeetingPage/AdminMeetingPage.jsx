@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { fetchMeetings, createMeeting, updateMeeting, deleteMeeting } from "../../Services/meetingServices";
 import { fetchUser } from "../../Services/services";
-import { format, parseISO, isAfter, isBefore, isValid } from "date-fns";
+import { format, parseISO, isAfter, isBefore, isValid, isSameDay, isWithinInterval } from "date-fns";
 import { PlusCircle, Pencil, Trash2, CalendarDays, Users, Clock, ChevronDown, X, Video } from "lucide-react";
 import { toast } from "react-toastify";
 import { motion, AnimatePresence } from "framer-motion";
@@ -83,6 +83,28 @@ export default function MeetingsPage() {
     if (!timeStr) return base;
     const [hh, mm] = (timeStr || "").split(":").map((n) => Number(n) || 0);
     return new Date(base.getFullYear(), base.getMonth(), base.getDate(), hh, mm, 0, 0);
+  };
+
+  // New function to check if join button should be enabled
+  const canJoinMeeting = (meeting) => {
+    const now = new Date();
+    const meetingDate = parseISO(meeting.date);
+    
+    // Check if today is the meeting date
+    if (!isSameDay(now, meetingDate)) {
+      return false;
+    }
+    
+    const startTime = toDateFromDateAndTime(meeting.date, meeting.startTime);
+    const endTime = toDateFromDateAndTime(meeting.date, meeting.endTime || meeting.startTime);
+    
+    // If no end time, allow joining from start time onwards
+    if (!meeting.endTime) {
+      return isAfter(now, startTime) || now.getTime() === startTime.getTime();
+    }
+    
+    // Check if current time is within the meeting time interval
+    return isWithinInterval(now, { start: startTime, end: endTime });
   };
 
   const handleSubmit = async (e) => {
@@ -469,6 +491,8 @@ export default function MeetingsPage() {
               const start = toDateFromDateAndTime(meeting.date, meeting.startTime);
               const end = toDateFromDateAndTime(meeting.date, meeting.endTime || meeting.startTime);
               const dateLabel = isValid(parseISO(meeting.date)) ? format(parseISO(meeting.date), "PPP") : meeting.date;
+              const canJoin = canJoinMeeting(meeting);
+              
               return (
                 <div key={meeting._id} className="group bg-white rounded-2xl shadow-md border border-gray-200 hover:shadow-lg transition-all duration-300 p-5 flex flex-col justify-between">
                   <div>
@@ -512,19 +536,28 @@ export default function MeetingsPage() {
                     </button>
 
                     {meeting.link && meeting.mode === "Online" && (
-  <button
-    onClick={() => {
-      const url = meeting.link;
-      // Open in a new window with defined size (or "_blank" for new tab)
-      window.open(url, "_blank", "width=1200,height=800");
-    }}
-    className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition"
-  >
-    <Video size={16} />
-    Join
-  </button>
-)}
-
+                      <button
+                        onClick={() => {
+                          if (canJoin) {
+                            const url = meeting.link;
+                            // Open in a new window with defined size (or "_blank" for new tab)
+                            window.open(url, "_blank", "width=1200,height=800");
+                          } else {
+                            toast.warning("Meeting can only be joined on the scheduled date during the meeting time.");
+                          }
+                        }}
+                        disabled={!canJoin}
+                        className={`flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded-lg transition ${
+                          canJoin 
+                            ? "text-white bg-indigo-600 hover:bg-indigo-700" 
+                            : "text-gray-400 bg-gray-200 cursor-not-allowed"
+                        }`}
+                        title={!canJoin ? "Meeting can only be joined on the scheduled date during the meeting time" : "Join meeting"}
+                      >
+                        <Video size={16} />
+                        Join
+                      </button>
+                    )}
                   </div>
                 </div>
               );
