@@ -1,20 +1,55 @@
 import { useState, useRef, useEffect } from "react";
-import { Send, Mic, Loader2, ArrowDown, VolumeX, Volume2 } from "lucide-react";
+import { Send, Mic, Loader2, ArrowDown, VolumeX, Volume2, Trash2 } from "lucide-react";
 
 const AssistantPanel = () => {
-  const [messages, setMessages] = useState([
-    { role: "assistant", content: "👋 Hi, I'm your Chronox. How can I help?" },
-  ]);
+  const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [listening, setListening] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const [muted, setMuted] = useState(false);
+  const [lastInteractionType, setLastInteractionType] = useState('text'); // 'voice' or 'text'
 
   const chatWindowRef = useRef(null);
   const recognitionRef = useRef(null);
   const utteranceRef = useRef(null);
+
+  // Load conversation from localStorage on mount
+  useEffect(() => {
+    const savedMessages = localStorage.getItem('chronox-conversation');
+    const savedMuteState = localStorage.getItem('chronox-muted');
+    
+    if (savedMessages) {
+      try {
+        const parsedMessages = JSON.parse(savedMessages);
+        setMessages(parsedMessages);
+      } catch (error) {
+        console.error('Error loading saved messages:', error);
+        // Fallback to default message
+        setMessages([{ role: "assistant", content: "👋 Hi, I'm your Chronox. How can I help?" }]);
+      }
+    } else {
+      // Default welcome message for new conversations
+      setMessages([{ role: "assistant", content: "👋 Hi, I'm your Chronox. How can I help?" }]);
+    }
+
+    if (savedMuteState) {
+      setMuted(savedMuteState === 'true');
+    }
+  }, []);
+
+  // Save conversation to localStorage whenever messages change
+  useEffect(() => {
+    if (messages.length > 0) {
+      localStorage.setItem('chronox-conversation', JSON.stringify(messages));
+    }
+  }, [messages]);
+
+  // Save mute state to localStorage
+  useEffect(() => {
+    localStorage.setItem('chronox-muted', muted.toString());
+  }, [muted]);
 
   // Initialize speech recognition once
   useEffect(() => {
@@ -30,7 +65,8 @@ const AssistantPanel = () => {
         const transcript = event.results[0][0].transcript;
         setListening(false);
         setInput(transcript);
-        sendMessage(transcript);
+        setLastInteractionType('voice'); // Mark this as voice interaction
+        sendMessage(transcript, 'voice');
       };
 
       recognition.onerror = () => setListening(false);
@@ -82,7 +118,13 @@ const AssistantPanel = () => {
     setMuted(!muted);
   };
 
-  const sendMessage = async (forcedInput = null) => {
+  const clearConversation = () => {
+    const defaultMessage = { role: "assistant", content: "👋 Hi, I'm your Chronox. How can I help?" };
+    setMessages([defaultMessage]);
+    localStorage.setItem('chronox-conversation', JSON.stringify([defaultMessage]));
+  };
+
+  const sendMessage = async (forcedInput = null, interactionType = 'text') => {
     const messageText = forcedInput || input;
     if (!messageText.trim() || loading) return;
 
@@ -92,6 +134,11 @@ const AssistantPanel = () => {
     setMessages(newMessages);
     setInput("");
     setLoading(true);
+
+    // Update interaction type if not provided
+    if (!forcedInput) {
+      setLastInteractionType(interactionType);
+    }
 
     try {
       const token = sessionStorage.getItem("token");
@@ -109,16 +156,15 @@ const AssistantPanel = () => {
 
       setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
 
-      // Only speak if not muted
-      if (!muted) {
+      // Only speak if the last interaction was voice and not muted
+      const shouldSpeak = (interactionType === 'voice' || lastInteractionType === 'voice') && !muted;
+      if (shouldSpeak) {
         speak(reply);
       }
     } catch (err) {
       console.error("Error chatting with assistant:", err);
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: "⚠️ Couldn't reach the assistant." },
-      ]);
+      const errorMessage = { role: "assistant", content: "⚠️ Couldn't reach the assistant." };
+      setMessages((prev) => [...prev, errorMessage]);
     } finally {
       setLoading(false);
     }
@@ -127,8 +173,14 @@ const AssistantPanel = () => {
   const handleKeyDown = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      sendMessage();
+      setLastInteractionType('text'); // Mark this as text interaction
+      sendMessage(null, 'text');
     }
+  };
+
+  const handleSendClick = () => {
+    setLastInteractionType('text'); // Mark this as text interaction
+    sendMessage(null, 'text');
   };
 
   const handleVoiceInput = () => {
@@ -273,6 +325,15 @@ const AssistantPanel = () => {
             </div>
           )}
 
+          {/* Clear conversation button */}
+          <button
+            onClick={clearConversation}
+            className="p-2 rounded-lg transition-colors duration-200 bg-gray-100 text-gray-600 hover:bg-gray-200"
+            title="Clear conversation"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+
           {/* Mute/Unmute button */}
           <button
             onClick={toggleMute}
@@ -341,7 +402,7 @@ const AssistantPanel = () => {
           disabled={loading}
         />
         <button
-          onClick={() => sendMessage()}
+          onClick={handleSendClick}
           className="p-3 bg-indigo-500 text-white rounded-xl hover:bg-indigo-600 disabled:opacity-50 transition-colors duration-200"
           disabled={loading || !input.trim()}
         >
