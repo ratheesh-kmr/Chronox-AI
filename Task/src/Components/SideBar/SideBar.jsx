@@ -83,7 +83,7 @@ const SideBar = ({ collapsed, onToggle }) => {
     const token = sessionStorage.getItem("token"); // Adjust based on your token storage method
     
     // Initialize socket connection
-    const socketInstance = io("http://localhost:5000/", {
+    const socketInstance = io("https://chronox-server.xicsolutions.in/", {
       auth: { token },
       transports: ['websocket'],
     });
@@ -154,7 +154,8 @@ const SideBar = ({ collapsed, onToggle }) => {
       setNotificationCounts({
         TASK: 0,
         PROJECT: 0,
-        TEAM: 0
+        TEAM: 0,
+        MEETING:0,
       });
     };
 
