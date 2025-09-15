@@ -95,7 +95,7 @@ const AssistantPanel = () => {
 
     try {
       const token = sessionStorage.getItem("token");
-      const res = await fetch("http://localhost:5000/api/assistant/chat", {
+      const res = await fetch("https://chronox-server.xicsolutions.in/api/assistant/chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
