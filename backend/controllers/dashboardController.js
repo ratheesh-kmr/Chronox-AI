@@ -272,6 +272,25 @@ const getOverdueTasks = asyncHandler(async (req, res) => {
 
 
 
+const getTaskStats = asyncHandler(async (req, res) => {
+  const totalTasks = await Task.countDocuments({ deletedAt: null });
+  const completedTasks = await Task.countDocuments({
+    status: "Completed",
+    deletedAt: null,
+  });
+
+  const completionRate =
+    totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+  res.status(200).json({
+    total: totalTasks,
+    completed: completedTasks,
+    completionRate,
+  });
+});
+
+
+
 
 
 
@@ -592,4 +611,5 @@ module.exports = {
   getAllTeamLeadsStats,
   getTeamSummary,
   getOverdueTasks,
+  getTaskStats,
 };
