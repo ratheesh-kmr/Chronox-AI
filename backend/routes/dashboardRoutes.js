@@ -14,7 +14,9 @@ const {
   getAllTeamLeadsStats,
   getTeamSummary,
   getOverdueTasks,
+  getTaskStats,
   getDashboardStats, // Legacy endpoint
+  
 } = require("../controllers/dashboardController");
 const { authMiddleware } = require("../middleware/authMiddleware");
 
@@ -33,6 +35,7 @@ router.get("/:teamId/members", authMiddleware, getTeamMembersWithStats);
 router.get("/team-leads", authMiddleware, getAllTeamLeadsStats);
 router.get("/TeamSummary", getTeamSummary);
 router.get("/overdueTask", getOverdueTasks);
+router.get("/task-stats", authMiddleware , getTaskStats);
 // ------------------------------
 // Legacy Endpoint (for backward compatibility)
 // ------------------------------
