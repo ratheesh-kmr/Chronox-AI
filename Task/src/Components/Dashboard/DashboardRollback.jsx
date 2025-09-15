@@ -68,7 +68,7 @@ import axios from "axios";
 const token = sessionStorage.getItem("token");
 
 const axiosInstance = axios.create({
-  baseURL: "http://localhost:5000/",
+  baseURL: "https://chronox-server.xicsolutions.in/",
   headers: {
     authorization: `Bearer ${token}`,
   },
