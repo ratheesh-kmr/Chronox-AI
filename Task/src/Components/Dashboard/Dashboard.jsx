@@ -4,7 +4,7 @@ import axios from "axios";
 const token = sessionStorage.getItem("token");
 
 const axiosInstance = axios.create({
-  baseURL: "http://localhost:5000/",
+  baseURL: "https://chronox-server.xicsolutions.in/",
   headers: {
     authorization: `Bearer ${token}`,
   },
@@ -76,6 +76,7 @@ import {
   AreaChart,
 } from "recharts";
 import { Disclosure } from '@headlessui/react';
+import { Navigate, useNavigate } from "react-router-dom";
 
 const COLORS = {
   primary: "#6A64F1",
@@ -119,6 +120,77 @@ const getPriorityBadgeColor = (priority) => {
   }
 };
 
+const formatMeetingDate = (date) => {
+  if (!date) return '';
+
+  try {
+    const meetingDate = new Date(date);
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    // Reset time to compare dates only
+    today.setHours(0, 0, 0, 0);
+    tomorrow.setHours(0, 0, 0, 0);
+    meetingDate.setHours(0, 0, 0, 0);
+
+    if (meetingDate.getTime() === today.getTime()) {
+      return 'Today';
+    } else if (meetingDate.getTime() === tomorrow.getTime()) {
+      return 'Tomorrow';
+    } else {
+      return meetingDate.toLocaleDateString('en-US', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric'
+      });
+    }
+  } catch (error) {
+    console.error('Error formatting date:', error);
+    return date; // Return original if parsing fails
+  }
+};
+
+const formatTime = (time) => {
+  if (!time) return '';
+
+  try {
+    // Handle different time formats
+    if (typeof time === 'string' && time.includes(':')) {
+      const [hours, minutes] = time.split(':');
+      const hour = parseInt(hours, 10);
+      const ampm = hour >= 12 ? 'PM' : 'AM';
+      const displayHour = hour % 12 || 12;
+      return `${displayHour}:${minutes} ${ampm}`;
+    }
+    return time; // Return as-is if not in expected format
+  } catch (error) {
+    console.error('Error formatting time:', error);
+    return time;
+  }
+};
+
+const isOngoingMeeting = (meeting) => {
+  if (!meeting.date || !meeting.startTime) return false;
+
+  try {
+    // Build start datetime
+    const start = new Date(`${meeting.date}T${meeting.startTime}`);
+    // Build end datetime (use provided endTime or fallback to +1 hour)
+    let end;
+    if (meeting.endTime) {
+      end = new Date(`${meeting.date}T${meeting.endTime}`);
+    } else {
+      end = new Date(start.getTime() + 60 * 60 * 1000); // default 1hr
+    }
+
+    const now = new Date();
+    return now >= start && now <= end;
+  } catch (err) {
+    console.error("Error checking meeting window:", err);
+    return false;
+  }
+};
 
 
 const enhancedApiService = {
@@ -165,11 +237,16 @@ const enhancedApiService = {
 
   // Next Meeting
   async fetchUserMeetings() {
+    try {
       const response = await axiosInstance.get("api/meetings/my-meetings");
-      console.log("response:",response.data)
-      return response.data;
-  
- },
+      console.log("Meeting API Response:", response.data);
+      return response.data; // return exactly what the API gives
+    } catch (error) {
+      console.error("Error fetching meetings:", error);
+      return null;
+    }
+  },
+
 
   // Projects
   async fetchProjects() {
@@ -208,71 +285,21 @@ const enhancedApiService = {
   },
 
   async fetchNotifications() {
-  try {
-    const response = await axiosInstance.get("/api/notifications");
-    return response.data.notifications;
-  } catch (error) {
-    console.error("Error fetching notifications:", error);
-    throw error;
-  }
-},
-
-async fetchMeetings() {
-  const res = await axiosInstance.get("api/meetings");
-  return res.data;
-},
-
-
-  async fetchTopPerformers() {
-    return [
-      { id: 1, name: "Mike Johnson", completedTasks: 31, efficiency: 95, avatar: "/api/placeholder/32/32" },
-      { id: 2, name: "John Doe", completedTasks: 23, efficiency: 92, avatar: "/api/placeholder/32/32" },
-      { id: 3, name: "Alex Chen", completedTasks: 20, efficiency: 90, avatar: "/api/placeholder/32/32" }
-    ];
+    try {
+      const response = await axiosInstance.get("/api/notifications");
+      return response.data.notifications;
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+      throw error;
+    }
   },
 
-  async fetchRiskAnalysis() {
-    return {
-      highRiskProjects: 2,
-      criticalTasks: 5,
-      resourceConstraints: 3,
-      risks: [
-        { type: "Schedule", level: "High", description: "3 projects behind schedule" },
-        { type: "Resource", level: "Medium", description: "Team capacity at 95%" },
-        { type: "Quality", level: "Low", description: "Minor issues detected" }
-      ]
-    };
-  },
+  async fetchTaskStats() {
+  const response = await axiosInstance.get("api/dashboard/task-stats");
+  return response.data;
+},
 
-  // Time Tracking APIs
-async fetchTimeTracking() {
-  // Generate total hours between 150–180
-  const totalHours = (150 + Math.random() * 30).toFixed(1);
 
-  // Billable hours slightly less than total
-  const billableHours = (totalHours * (0.75 + Math.random() * 0.2)).toFixed(1);
-
-  // Efficiency as percentage
-  const efficiency = ((billableHours / totalHours) * 100).toFixed(1);
-
-  // Weekly data (Mon–Fri)
-  const days = ["Mon", "Tue", "Wed", "Thu", "Fri"];
-  const weeklyData = days.map(day => {
-    const hours = (7 + Math.random() * 3).toFixed(1); // 7–10 hours
-    const billable = (hours * (0.75 + Math.random() * 0.2)).toFixed(1); // 75–95% billable
-    return { day, hours: parseFloat(hours), billable: parseFloat(billable) };
-  });
-
-  return {
-    totalHours: parseFloat(totalHours),
-    billableHours: parseFloat(billableHours),
-    efficiency: parseFloat(efficiency),
-    weeklyData,
-  };
-}
-,
-
-  
 
   // Export functionality
   async exportReport(type, filters = {}) {
@@ -340,7 +367,7 @@ const WidgetCard = ({ title, children, className = "", style = {}, actions }) =>
 
 );
 const handleTaskClick = (taskId) => {
-  navigate(`/TaskDetailsPage/${taskId}`);
+  Navigate(`/TaskDetailsPage/${taskId}`);
 };
 const StatusBadge = ({ status }) => {
   const statusMap = {
@@ -459,18 +486,24 @@ const Dashboard = () => {
 
   const [loading, setLoading] = useState(true);
   const [errors, setErrors] = useState([]);
+  const navigate = useNavigate();
 
   // Original states
   const [stats, setStats] = useState(null);
   const [analyticsData, setAnalyticsData] = useState([]);
   const [projectTasks, setProjectTasks] = useState([]);
   const [projectProgress, setProjectProgress] = useState(null);
-  const [nextMeeting, setNextMeeting] = useState(null);
+  const [nextMeeting, setNextMeeting] = useState([]);
   const [projectOptions, setProjectOptions] = useState([]);
   const [selectedProjectId, setSelectedProjectId] = useState(null);
   const [selectedProject, setSelectedProject] = useState(null);
   const [projects, setProjects] = useState([]);
   const [notifications, setNotifications] = useState([]);
+
+  console.log(nextMeeting?.[0]?.date, "first meeting date");
+
+
+
 
 
   // Enhanced states
@@ -480,6 +513,7 @@ const Dashboard = () => {
   const [topPerformers, setTopPerformers] = useState([]);
   const [riskAnalysis, setRiskAnalysis] = useState(null);
   const [timeTracking, setTimeTracking] = useState(null);
+  const [taskStats, setTaskStats] = useState(null);
   const [showExportModal, setShowExportModal] = useState(false);
 
   const getPriorityColor = (priority) => {
@@ -498,9 +532,10 @@ const Dashboard = () => {
     { name: 'Next Meeting', fn: enhancedApiService.fetchUserMeetings, setter: setNextMeeting },
     { name: 'Team Members', fn: enhancedApiService.fetchTeamSummary, setter: setTeams },
     { name: 'Overdue Tasks', fn: enhancedApiService.fetchOverdueTasks, setter: setOverdueTasks },
-    { name: 'Top Performers', fn: enhancedApiService.fetchTopPerformers, setter: setTopPerformers },
-    { name: 'Risk Analysis', fn: enhancedApiService.fetchRiskAnalysis, setter: setRiskAnalysis },
-    { name: 'Time Tracking', fn: enhancedApiService.fetchTimeTracking, setter: setTimeTracking },
+    { name: 'Task Stats', fn: enhancedApiService.fetchTaskStats, setter: setTaskStats },
+    // { name: 'Top Performers', fn: enhancedApiService.fetchTopPerformers, setter: setTopPerformers },
+    // { name: 'Risk Analysis', fn: enhancedApiService.fetchRiskAnalysis, setter: setRiskAnalysis },
+    // { name: 'Time Tracking', fn: enhancedApiService.fetchTimeTracking, setter: setTimeTracking },
     { name: 'Notifications', fn: enhancedApiService.fetchNotifications, setter: setNotifications },
   ];
 
@@ -689,13 +724,22 @@ const Dashboard = () => {
           icon={AlertTriangle}
           changeType="negative"
         />
-        <StatCard
+        {/* <StatCard
           title="Efficiency"
           value={`${timeTracking?.efficiency || 0}%`}
           change="Weekly average"
           icon={Zap}
           changeType="positive"
+        /> */}
+
+        <StatCard
+          title="Task Completion Rate"
+          value={`${taskStats?.completionRate || 0}%`}
+          change={`${taskStats?.completed || 0} of ${taskStats?.total || 0} tasks`}
+          icon={CheckCircle}
+          changeType="positive"
         />
+
 
         {/* Project Analytics (Enhanced) */}
         <WidgetCard
@@ -817,41 +861,70 @@ const Dashboard = () => {
         </WidgetCard>
 
         {/* Next Meeting */}
-          <WidgetCard title="Next Meeting">
-            {nextMeeting ? (
-              <div className="space-y-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                    <Calendar className="w-5 h-5 text-purple-600" />
+
+        <WidgetCard title="Next Meeting">
+          {loading ? (
+            <div className="text-center py-8">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600 mx-auto mb-2"></div>
+              <p className="text-gray-500 text-sm">Loading meetings...</p>
+            </div>
+          ) : nextMeeting && nextMeeting.length > 0 ? (
+            <div className="space-y-4">
+              {nextMeeting.map((meeting, index) => (
+                <div key={meeting._id || index} className="space-y-3 border-b border-gray-200 pb-3 last:border-0">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                      <Calendar className="w-5 h-5 text-purple-600" />
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-gray-800 text-sm line-clamp-1">
+                        {meeting.title || "Untitled Meeting"}
+                      </h4>
+                      <p className="text-xs text-gray-500">
+                        {meeting.date ? formatMeetingDate(meeting.date) : "No date"}{" "}
+                        {meeting.startTime ? `at ${formatTime(meeting.startTime)}` : ""}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="font-semibold text-gray-800 text-sm">{nextMeeting.title}</h4>
-                    <p className="text-xs text-gray-500">{nextMeeting.date} at {nextMeeting.startTime}</p>
+                  <div className="flex items-center justify-between text-xs text-gray-500">
+                    <span className="flex items-center gap-1">
+                      <Users className="w-3 h-3" />
+                      {Array.isArray(meeting.participants)
+                        ? meeting.participants.length
+                        : meeting.participants || 0}{" "}
+                      attendees
+                    </span>
+                    {isOngoingMeeting(meeting) && (meeting.meetingUrl || meeting.link) ? (
+                      <a
+                        href={meeting.meetingUrl || meeting.link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-purple-600 hover:text-purple-800 font-medium"
+                      >
+                        Join Meeting
+                      </a>
+                    ) : (
+                      <button
+                        className="text-purple-600 hover:text-purple-800 font-medium"
+                        onClick={() => navigate("/MeetingsPage")}
+                      >
+                        View Details
+                      </button>
+                    )}
                   </div>
                 </div>
-                <div className="flex items-center justify-between text-xs text-gray-500">
-                  <span className="flex items-center gap-1">
-                    <Users className="w-3 h-3" />
-                    {nextMeeting.participants} attendees
-                  </span>
-                  <button className="text-purple-600 hover:text-purple-800 font-medium">
-                    Join Meeting
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <Calendar className="mx-auto w-8 h-8 text-gray-400 mb-2" />
-                <p className="text-gray-500 text-sm">No upcoming meetings</p>
-              </div>
-            )}
-          </WidgetCard>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <Calendar className="mx-auto w-8 h-8 text-gray-400 mb-2" />
+              <p className="text-gray-500 text-sm">No upcoming meetings</p>
+            </div>
+          )}
+        </WidgetCard>
+
 
         {/* Overdue Tasks */}
- 
-    
-
-
         <WidgetCard title="Overdue Tasks" className="col-span-1 md:col-span-2" >
           {overdueTasks && overdueTasks.length > 0 ? (
             <div className="space-y-3 ">
@@ -891,38 +964,38 @@ const Dashboard = () => {
         </WidgetCard>
 
 
-<WidgetCard title="Recent Notifications" className="col-span-1 md:col-span-2">
-      {notifications && notifications.length > 0 ? (
-        <div className="space-y-3">
-          {notifications.slice(0, 5).map((notification) => (
-            <div
-              key={notification._id}
-              className={`flex items-center justify-between p-3 rounded-lg transition-colors duration-200
+        <WidgetCard title="Recent Notifications" className="col-span-1 md:col-span-2">
+          {notifications && notifications.length > 0 ? (
+            <div className="space-y-3">
+              {notifications.slice(0, 5).map((notification) => (
+                <div
+                  key={notification._id}
+                  className={`flex items-center justify-between p-3 rounded-lg transition-colors duration-200
                 ${notification.read ? 'bg-gray-100 text-gray-500' : 'bg-white shadow-sm hover:bg-gray-50'}`}
-            >
-              <div className="flex items-start gap-3">
-                {/* Read/Unread Status Indicator */}
-                {!notification.read && <div className="flex-shrink-0 w-2 h-2 mt-2 rounded-full bg-purple-500" />}
+                >
+                  <div className="flex items-start gap-3">
+                    {/* Read/Unread Status Indicator */}
+                    {!notification.read && <div className="flex-shrink-0 w-2 h-2 mt-2 rounded-full bg-purple-500" />}
 
-                <div className="flex-1">
-                  <h4 className={`font-medium text-sm ${notification.read ? 'text-gray-500' : 'text-gray-900'}`}>
-                    {notification.message}
-                  </h4>
-                  <p className="text-xs text-gray-400 mt-1">
-                    {new Date(notification.timestamp || notification.createdAt).toLocaleString()}
-                  </p>
+                    <div className="flex-1">
+                      <h4 className={`font-medium text-sm ${notification.read ? 'text-gray-500' : 'text-gray-900'}`}>
+                        {notification.message}
+                      </h4>
+                      <p className="text-xs text-gray-400 mt-1">
+                        {new Date(notification.timestamp || notification.createdAt).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              ))}
             </div>
-          ))}
-        </div>
-      ) : (
-        <div className="text-center py-8">
-          <BellOff className="mx-auto w-8 h-8 text-gray-400 mb-2" />
-          <p className="text-gray-500 text-sm">No new notifications</p>
-        </div>
-      )}
-    </WidgetCard>
+          ) : (
+            <div className="text-center py-8">
+              <BellOff className="mx-auto w-8 h-8 text-gray-400 mb-2" />
+              <p className="text-gray-500 text-sm">No new notifications</p>
+            </div>
+          )}
+        </WidgetCard>
 
 
 
@@ -930,7 +1003,7 @@ const Dashboard = () => {
 
 
         {/* Recent Tasks */}
-       
+
         {/* Teams */}
         <div className="col-span-1 md:col-span-2">
           <WidgetCard title="Teams Overview">
@@ -1021,7 +1094,7 @@ const Dashboard = () => {
           </WidgetCard>
         </div>
 
- <WidgetCard title="Recent Tasks" className="col-span-1 md:col-span-2">
+        <WidgetCard title="Recent Tasks" className="col-span-1 md:col-span-2">
           {projectTasks && projectTasks.length > 0 ? (
             <div className="space-y-3">
               {projectTasks.slice(0, 8).map((task) => (
