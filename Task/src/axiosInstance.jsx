@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const axiosInstance = axios.create({
-  baseURL: process.env.BASE_URL || "http://localhost:5000/",
+  baseURL: process.env.BASE_URL || "https://chronox-server.xicsolutions.in/",
 });
 
 // Add Authorization header from sessionStorage
