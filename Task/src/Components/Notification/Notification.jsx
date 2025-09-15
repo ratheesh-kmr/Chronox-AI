@@ -51,7 +51,7 @@ const handleNotificationClick = async (n) => {
     };
     getNotifications();
 
-    const socket = io("http://localhost:5000/", {
+    const socket = io("https://chronox-server.xicsolutions.in/", {
       auth: { token },
       transports: ['websocket'],
     });
