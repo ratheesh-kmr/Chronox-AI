@@ -12,7 +12,7 @@ const createMeeting = asyncHandler(async (req, res) => {
     throw new Error("Please provide title, date, start and end time");
   }
 
-  // Step 1: Create meeting without link (so MongoDB generates _id)
+
   let meeting = await Meeting.create({
     title,
     description,
@@ -24,7 +24,7 @@ const createMeeting = asyncHandler(async (req, res) => {
     createdBy: req.user._id,
   });
 
-  // Step 2: Use meeting._id to generate unique Jitsi link
+
   const roomName = `Chronox-Meeting-${meeting._id}`;
   const jitsiLink = `https://meet.jit.si/${roomName}`;
 
@@ -32,7 +32,6 @@ const createMeeting = asyncHandler(async (req, res) => {
   meeting.link = jitsiLink;
   await meeting.save();
 
-  // 🔔 Notify all participants
   if (participants && participants.length > 0) {
     for (const userId of participants) {
       const notif = await Notification.create({
@@ -47,7 +46,6 @@ const createMeeting = asyncHandler(async (req, res) => {
     }
   }
 
-  // 🔔 Notify the creator as confirmation (optional)
   const creatorNotif = await Notification.create({
     user: req.user._id,
     title: "Meeting Created",
@@ -101,7 +99,6 @@ const updateMeeting = asyncHandler(async (req, res) => {
     { new: true }
   );
 
-  // 🔔 Notify all participants about the update
   if (updatedMeeting.participants && updatedMeeting.participants.length > 0) {
     for (const userId of updatedMeeting.participants) {
       const notif = await Notification.create({
@@ -152,14 +149,21 @@ const getUserMeetings = asyncHandler(async (req, res) => {
     const userId = req.user._id; 
 
     const meetings = await Meeting.find({
-      participants: userId,
-      deletedAt: null,
-    })
-      .populate("createdBy", "name email")
-      .populate("participants", "name email role")
-      .sort({ date: 1 });
+  participants: userId,
+  deletedAt: null,
+})
+  .populate("createdBy", "name email")
+  .populate("participants", "name email role")
+  .sort({ date: 1 });
 
-    res.status(200).json(meetings);
+const normalizedMeetings = meetings.map(m => ({
+  ...m.toObject(),
+  startTime: m.startTime || "00:00",
+  endTime: m.endTime || null,
+}));
+
+res.status(200).json(normalizedMeetings);
+
   } catch (error) {
     console.error("Error fetching user meetings:", error);
     res.status(500).json({ message: "Failed to fetch meetings" });
